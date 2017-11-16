@@ -5,6 +5,7 @@ import sys
 import pygame
 from pygame.locals import *
 
+# For input lines 275
 
 FPS = 30
 SCREENWIDTH  = 288
@@ -12,6 +13,8 @@ SCREENHEIGHT = 512
 # amount by which base can maximum shift to left
 PIPEGAPSIZE  = 150 # gap between upper and lower part of pipe
 BASEY        = SCREENHEIGHT * 0.79
+PIPEDETERMINTISIC = False
+DISPLAYSCREEN = True
 # image, sound and hitmask  dicts
 IMAGES, SOUNDS, HITMASKS = {}, {}, {}
 
@@ -133,7 +136,7 @@ def main():
             getHitmask(IMAGES['player'][2]),
         )
 
-        HITMASKS['ball'] = getHitmask(IMAGES['ball'])
+        #HITMASKS['ball'] = getHitmask(IMAGES['ball'])
 
         movementInfo = showWelcomeAnimation()
         crashInfo = mainGame(movementInfo)
@@ -270,15 +273,18 @@ def mainGame(movementInfo):
                 'playerRot': playerRot
             }
 
-        # check for score
+        # neural_out
+        neural_input_x = playerx - lowerPipes[0]['x'] - 50
+        neural_input_y = playery - lowerPipes[0]['y'] - 50
+
+        ####
+
+        neural_out = False
         if playery > lowerPipes[0]['y'] - 50:
             playerVelY = playerFlapAcc
             playerFlapped = True
             SOUNDS['wing'].play()
-        # if random.random() > 0.95:
-        #     playerVelY = playerFlapAcc
-        #     playerFlapped = True
-        #     SOUNDS['wing'].play()
+
         playerMidPos = playerx + IMAGES['player'][0].get_width() / 2
         for pipe in upperPipes:
             pipeMidPos = pipe['x'] + IMAGES['pipe'][0].get_width() / 2
@@ -356,7 +362,8 @@ def mainGame(movementInfo):
         playerSurface = pygame.transform.rotate(IMAGES['player'][playerIndex], visibleRot)
         SCREEN.blit(playerSurface, (playerx, playery))
 
-        pygame.display.update()
+        if DISPLAYSCREEN:
+            pygame.display.update()
         FPSCLOCK.tick(FPS)
 
 
@@ -458,41 +465,6 @@ def showScore(score):
         SCREEN.blit(IMAGES['numbers'][digit], (Xoffset, SCREENHEIGHT * 0.1))
         Xoffset += IMAGES['numbers'][digit].get_width()
 
-def checkPass(player, ball):
-    pi = player['index']
-    player['w'] = IMAGES['player'][0].get_width()
-    player['h'] = IMAGES['player'][0].get_height()
-    ball['w'] = IMAGES['ball'].get_width()
-    ball['h'] = IMAGES['ball'].get_height()
-    # if player crashes into ground
-    if player['y'] + player['h'] >= BASEY - 1:
-        return [True, True, False]
-    else:
-
-        playerRect = pygame.Rect(player['x'], player['y'],
-                                 player['w'], player['h'])
-        ballRect = pygame.Rect(ball['x'], ball['y'], ball['w'], ball['h'])
-        pipeW = IMAGES['pipe'][0].get_width()
-        pipeH = IMAGES['pipe'][0].get_height()
-
-        for uPipe, lPipe in zip(upperPipes, lowerPipes):
-            # upper and lower pipe rects
-            uPipeRect = pygame.Rect(uPipe['x'], uPipe['y'], pipeW, pipeH)
-            lPipeRect = pygame.Rect(lPipe['x'], lPipe['y'], pipeW, pipeH)
-
-            # player and upper/lower pipe hitmasks
-            pHitMask = HITMASKS['player'][pi]
-            uHitmask = HITMASKS['pipe'][0]
-            lHitmask = HITMASKS['pipe'][1]
-
-            # if bird collided with upipe or lpipe
-            uCollide = pixelCollision(playerRect, uPipeRect, pHitMask, uHitmask)
-            lCollide = pixelCollision(playerRect, lPipeRect, pHitMask, lHitmask)
-
-            # if uCollide or lCollide:
-            #    return [True, False]
-
-    return [False, False, False]
 
 def checkCrash(player, upperPipes, lowerPipes):
     """returns True if player collders with base or pipes."""
@@ -525,8 +497,8 @@ def checkCrash(player, upperPipes, lowerPipes):
             uCollide = pixelCollision(playerRect, uPipeRect, pHitMask, uHitmask)
             lCollide = pixelCollision(playerRect, lPipeRect, pHitMask, lHitmask)
 
-            #if uCollide or lCollide:
-            #    return [True, False]
+            if uCollide or lCollide:
+                return [True, False]
 
     return [False, False]
 
