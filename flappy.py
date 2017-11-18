@@ -8,11 +8,11 @@ from pygame.locals import *
 # For input lines 275
 
 FPS = 30
-SCREENWIDTH  = 288
+SCREENWIDTH = 288
 SCREENHEIGHT = 512
 # amount by which base can maximum shift to left
 PIPEGAPSIZE  = 150 # gap between upper and lower part of pipe
-BASEY        = SCREENHEIGHT * 0.79
+BASEY = SCREENHEIGHT * 0.79
 PIPEDETERMINTISIC = False
 DISPLAYSCREEN = True
 # image, sound and hitmask  dicts
