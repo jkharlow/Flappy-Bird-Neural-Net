@@ -1,22 +1,27 @@
+import collections
 from itertools import cycle
 import random
 import sys
-
+import csv
 import pygame
+import time
+import datetime
 from pygame.locals import *
 
 # For input lines 275
 
 FPS = 30
-SCREENWIDTH = 288
+SCREENWIDTH  = 288
 SCREENHEIGHT = 512
 # amount by which base can maximum shift to left
 PIPEGAPSIZE  = 150 # gap between upper and lower part of pipe
-BASEY = SCREENHEIGHT * 0.79
+BASEY        = SCREENHEIGHT * 0.79
 PIPEDETERMINTISIC = False
 DISPLAYSCREEN = True
+AUTORUN = True
 # image, sound and hitmask  dicts
 IMAGES, SOUNDS, HITMASKS = {}, {}, {}
+Records = []
 
 # list of all possible players (tuple of 3 positions of flap)
 PLAYERS_LIST = (
@@ -166,6 +171,12 @@ def showWelcomeAnimation():
     playerShmVals = {'val': 2, 'dir': 1}
 
     while True:
+        if AUTORUN:
+            return {
+                'playery': playery + playerShmVals['val'],
+                'basex': 80,
+                'playerIndexGen': playerIndexGen,
+            }
         for event in pygame.event.get():
             if event.type == QUIT or (event.type == KEYDOWN and event.key == K_ESCAPE):
                 pygame.quit()
@@ -319,9 +330,22 @@ def mainGame(movementInfo):
         for uPipe, lPipe in zip(upperPipes, lowerPipes):
             uPipe['x'] += pipeVelX
             lPipe['x'] += pipeVelX
-        if printIterator % 30 == 0:
+
             inputx = upperPipes[0]['x'] - playerx
             inputy = (upperPipes[0]['y'] - lowerPipes[0]['y']) - playery
+            time = datetime.datetime.now().strftime('%M:%S')
+            Records.append(
+                [{'player_x': playerx,
+                  'player_y': playery,
+                  'pipe_lowy': lowerPipes[0]['y'],
+                  'pipe_upy': upperPipes[0]['y'],
+                  'flapped': playerFlapped,
+                  'dx_pipe': upperPipes[0]['x'],
+                  'input_x': inputx,
+                  'input_y': inputy,
+                  'time': time}]
+            )
+        if printIterator % 30 == 0:
             print("Player (x, y) - (", playerx, ",",playery,")")
             print('l', lowerPipes[0]['y'])
             print('u', upperPipes[0]['y'])
@@ -358,13 +382,104 @@ def mainGame(movementInfo):
         visibleRot = playerRotThr
         if playerRot <= playerRotThr:
             visibleRot = playerRot
-        
+
         playerSurface = pygame.transform.rotate(IMAGES['player'][playerIndex], visibleRot)
         SCREEN.blit(playerSurface, (playerx, playery))
 
         if DISPLAYSCREEN:
             pygame.display.update()
         FPSCLOCK.tick(FPS)
+
+def flattenList(x):
+    if isinstance(x, dict):
+        return [x]
+    elif isinstance(x, collections.Iterable) :
+        return [a for i in x for a in flattenList(i)]
+    else:
+        return [x]
+
+def padlists(lists):
+    longest = 0
+    for i in lists:
+        if len(i) > longest:
+            longest = len(i)
+
+    for li in lists:
+        while len(li) <= longest:
+            li.append('na')
+    return lists
+
+def calculateJumps(y):
+    i = 1
+    ls =[]
+    while i < len(y):
+        if abs(y[i-1] - y[i]) > 7:
+            ls.append("JUMPED")
+            i+=1
+        else:
+            ls.append("____")
+            i+=1
+
+    while len(ls)<len(y):
+        ls.append("____")
+    while len(ls) > len(y):
+        ls.pop()
+
+    return ls
+
+
+def exportCSV():
+    flat_records = flattenList(Records)
+    date = datetime.datetime.now().strftime("%H-%M-%S")
+    filename = "DATA_"+date+".CSV"
+    csv_dir = "output_csv/"+filename
+
+    px = []
+    py = []
+    lowy = []
+    upy = []
+    flapped = []
+    dxpipe = []
+    inx = []
+    iny = []
+    time = []
+
+    for data in flat_records:
+        px.append(data['player_x'])
+        py.append(data['player_y'])
+        lowy.append(data['pipe_lowy'])
+        upy.append(data['pipe_upy'])
+        dxpipe.append(data['dx_pipe'])
+        inx.append(data['input_x'])
+        iny.append(data['input_y'])
+        time.append(data['time'])
+    flapped = calculateJumps(py)
+    supv_datset = [[px] + [py] + [lowy] + [upy] + [flapped] + [dxpipe] + [inx] + [iny] + [time]]
+    supv_datset = padlists(supv_datset)
+
+    csvfile = open(csv_dir, 'w')
+    with csvfile:
+        myFields = ['POS_X', 'POS_Y',
+                    'FLAPPED',
+                    'DIST_TO_PIPE',
+                    'LOW_PIPE_Y',
+                    'TOP_PIPE_Y',
+                    'INPUT_X', 'INPUT_Y',
+                    'TIME']
+        writer = csv.DictWriter(csvfile, fieldnames=myFields)
+        writer.writeheader()
+        i = 0
+        while i < len(py):
+            writer.writerow({'POS_X': px[i], 'POS_Y': py[i],
+                             'FLAPPED': flapped[i],
+                             'DIST_TO_PIPE': dxpipe[i],
+                             'LOW_PIPE_Y': lowy[i],
+                             'TOP_PIPE_Y': upy[i],
+                             'INPUT_X': inx[i], 'INPUT_Y': iny[i],
+                             'TIME': time[i]})
+            i += 1
+
+    csvfile.close()
 
 
 def showGameOverScreen(crashInfo):
@@ -382,12 +497,16 @@ def showGameOverScreen(crashInfo):
 
     upperPipes, lowerPipes = crashInfo['upperPipes'], crashInfo['lowerPipes']
 
+    exportCSV()
+
     # play hit and die sounds
     SOUNDS['hit'].play()
     if not crashInfo['groundCrash']:
         SOUNDS['die'].play()
 
     while True:
+        if AUTORUN:
+            return
         for event in pygame.event.get():
             if event.type == QUIT or (event.type == KEYDOWN and event.key == K_ESCAPE):
                 pygame.quit()
@@ -526,6 +645,8 @@ def getHitmask(image):
         for y in xrange(image.get_height()):
             mask[x].append(bool(image.get_at((x,y))[3]))
     return mask
+
+#   UTILITY FUNCS
 
 if __name__ == '__main__':
     main()
